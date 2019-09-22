@@ -5,10 +5,12 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 
 import { HttpClientModule } from '@angular/common/http';
+import { SpikeChartComponent } from './charts/spike-chart/spike-chart.component';
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    SpikeChartComponent
   ],
   imports: [
     BrowserModule,
@@ -16,6 +18,8 @@ import { HttpClientModule } from '@angular/common/http';
     HttpClientModule
   ],
   providers: [],
-  bootstrap: [AppComponent]
+  bootstrap: [
+    AppComponent
+  ]
 })
 export class AppModule { }

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SpaServices.AngularCli;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 using TrafficIDS.Services;
 
 namespace TrafficIDS
@@ -59,10 +60,11 @@ namespace TrafficIDS
 
 			app.UseSpa(spa =>
 			{
-					// To learn more about options for serving an Angular SPA from ASP.NET Core,
-					// see https://go.microsoft.com/fwlink/?linkid=864501
+				// To learn more about options for serving an Angular SPA from ASP.NET Core,
+				// see https://go.microsoft.com/fwlink/?linkid=864501
 
-					spa.Options.SourcePath = "ClientApp";
+				spa.Options.SourcePath = "ClientApp";
+				spa.Options.StartupTimeout = TimeSpan.FromSeconds(80);
 
 				if (env.IsDevelopment())
 				{

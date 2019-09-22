@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TrafficIDS.Domain;
+using TrafficIDS.Models;
 
 namespace TrafficIDS.Services
 {
@@ -12,8 +13,8 @@ namespace TrafficIDS.Services
 	{
 		static private MLContext _mlContext;
 
-		private static string _path = @"F:\Studies\Projects\TrafficIDS\TrafficIDS\TrafficIDS\Data\meterData.csv";
-		private static string ModelPath = @"F:\Studies\Projects\TrafficIDS\TrafficIDS\TrafficIDS\MlModels\PowerAnomalyDetectionModel.zip";
+		private static string _path = @"F:\Studies\Projects\TrafficIDS\TrafficIDS\Data\meterData.csv";
+		private static string ModelPath = @"F:\Studies\Projects\TrafficIDS\TrafficIDS\MlModels\PowerAnomalyDetectionModel.zip";
 		private static int _fileSize = 36;
 
 		public IntrusionDetectionService()
@@ -21,13 +22,16 @@ namespace TrafficIDS.Services
 			_mlContext = new MLContext();
 		}
 
-		public IEnumerable<MeterPrediction> GetSpikes()
+		public IEnumerable<EvaluatedTrafficData> GetSpikes()
 		{
 			var dataView = LoadData();
-			BuildTrainModel(dataView);
-			var predictions = DetectAnomalies(dataView);
 
-			return predictions;
+			var trainedModel = BuildTrainModel(dataView);
+			SaveTrainedModel(transformer: trainedModel, dataView);
+
+			var evaluatedData = GetEvaluatedData(dataView);
+
+			return evaluatedData;
 		}
 
 		public IDataView LoadData()
@@ -43,9 +47,8 @@ namespace TrafficIDS.Services
 			}
 		}
 
-		public void BuildTrainModel(IDataView dataView)
+		public ITransformer BuildTrainModel(IDataView dataView)
 		{
-			// Configure the Estimator
 			const int PValueSize = 30;
 			const int SeasonalitySize = 30;
 			const int TrainingSize = 90;
@@ -62,41 +65,31 @@ namespace TrafficIDS.Services
 				 trainingWindowSize: TrainingSize,
 				 seasonalityWindowSize: SeasonalitySize);
 
-			ITransformer trainedModel = trainigPipeLine.Fit(dataView);
-
-			// STEP 6: Save/persist the trained model to a .ZIP file
-			_mlContext.Model.Save(trainedModel, dataView.Schema, ModelPath);
+			return trainigPipeLine.Fit(dataView);
 		}
 
-		public IEnumerable<MeterPrediction> DetectAnomalies(IDataView dataView)
+		public void SaveTrainedModel(ITransformer transformer, IDataView dataView)
+		{
+			try
+			{
+				_mlContext.Model.Save(transformer, dataView.Schema, ModelPath);
+			}
+			catch
+			{
+				throw;
+			}
+		}
+
+		public IEnumerable<EvaluatedTrafficData> GetEvaluatedData(IDataView dataView)
 		{
 			ITransformer trainedModel = _mlContext.Model.Load(ModelPath, out var modelInputSchema);
 
 			var transformedData = trainedModel.Transform(dataView);
 
-			// Getting the data of the newly created column as an IEnumerable
-			IEnumerable<MeterPrediction> predictions =
-				 _mlContext.Data.CreateEnumerable<MeterPrediction>(transformedData, false);
+			var evaluatedData = _mlContext.Data
+				.CreateEnumerable<EvaluatedTrafficData>(transformedData, false);
 
-			return predictions;
-
-			//var colCDN = dataView.GetColumn<float>("Value").ToArray();
-			//var colTime = dataView.GetColumn<DateTime>("Time").ToArray();
-
-			//int i = 0;
-			//foreach (var p in predictions)
-			//{
-			//	if (p.Prediction[0] == 1)
-			//	{
-			//		Console.BackgroundColor = ConsoleColor.DarkYellow;
-			//		Console.ForegroundColor = ConsoleColor.Black;
-			//	}
-			//	Console.WriteLine("{0}\t{1:0.0000}\t{2:0.00}\t{3:0.00}\t{4:0.00}",
-			//		 colTime[i], colCDN[i],
-			//		 p.Prediction[0], p.Prediction[1], p.Prediction[2]);
-			//	Console.ResetColor();
-			//	i++;
-			//}
+			return evaluatedData;
 		}
 	}
 }
