@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using TrafficIDS.Services;
 
 namespace TrafficIDS.Controllers
@@ -13,42 +13,53 @@ namespace TrafficIDS.Controllers
 	public class IntrusionDetectionController : ControllerBase
 	{
 		private readonly IntrusionDetectionService _intrusionDetection;
+		private readonly IConfiguration _config;
+		private readonly IHostingEnvironment _hostingEnvironment;
 
-		public IntrusionDetectionController(IntrusionDetectionService intrusionDetection)
+		public IntrusionDetectionController(IntrusionDetectionService intrusionDetection,
+			IConfiguration config,
+			IHostingEnvironment hostingEnvironment)
 		{
 			_intrusionDetection = intrusionDetection;
+			_config = config;
+			_hostingEnvironment = hostingEnvironment;
 		}
 
 		[HttpGet]
-		public IActionResult Get()
+		public IActionResult Get(string fileName)
 		{
-			var predictions = _intrusionDetection.GetSpikes();
+			var predictions = _intrusionDetection.GetSpikes(Path.Combine(fileName));
 			return Ok(predictions);
 		}
 
-		// GET: api/IntrusionDetection/5
-		[HttpGet("{id}", Name = "Get")]
-		public string Get(int id)
-		{
-			return "value";
-		}
-
-		// POST: api/IntrusionDetection
 		[HttpPost]
-		public void Post([FromBody] string value)
+		public async Task<IActionResult> OnPostUploadAsync()
 		{
-		}
+			string fileName = null;
 
-		// PUT: api/IntrusionDetection/5
-		[HttpPut("{id}")]
-		public void Put(int id, [FromBody] string value)
-		{
-		}
+			try
+			{
+				var file = Request.Form.Files[0];
 
-		// DELETE: api/ApiWithActions/5
-		[HttpDelete("{id}")]
-		public void Delete(int id)
-		{
+				if (file.Length > 0)
+				{
+					fileName = Guid.NewGuid().ToString() + ".csv";
+
+					var filePath = Path.Combine(_hostingEnvironment.WebRootPath,
+						_config["StoredFilesPath"], fileName);
+
+					using (var stream = System.IO.File.Create(filePath))
+					{
+						await file.CopyToAsync(stream);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				return StatusCode(500);
+			}
+
+			return Ok(new { fileName });
 		}
 	}
 }

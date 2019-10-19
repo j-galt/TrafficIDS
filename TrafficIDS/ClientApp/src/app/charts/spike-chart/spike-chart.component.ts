@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ChartService } from '../shared/chart-service';
 import { EvaluatedTraffic } from '../shared/evaluated-traffic.model';
+import { FileUploadService } from 'src/app/data-upload/shared/file-upload.service';
 
 @Component({
 	selector: 'spike-chart',
@@ -18,11 +19,15 @@ export class SpikeChartComponent implements OnInit {
 	chartLegend = true;
 	chartData: object[];
 
-	constructor(private chartService: ChartService) {
+	constructor(
+		private readonly chartService: ChartService,
+		private readonly fileUploadService: FileUploadService) {
 	}
 
 	ngOnInit(): void {
-		this.chartService.getPredictions().subscribe(predictions => {
+		let name = this.fileUploadService.getFileName();
+
+		this.chartService.getPredictions(name).subscribe(predictions => {
 			this.predictions = predictions
 
 			this.timeStamps = this.predictions.map(p => p.time);

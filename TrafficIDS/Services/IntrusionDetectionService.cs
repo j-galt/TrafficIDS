@@ -1,9 +1,8 @@
-﻿using Microsoft.ML;
-using Microsoft.ML.Data;
-using System;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.ML;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.IO;
 using TrafficIDS.Domain;
 using TrafficIDS.Models;
 
@@ -11,20 +10,21 @@ namespace TrafficIDS.Services
 {
 	public class IntrusionDetectionService
 	{
-		static private MLContext _mlContext;
+		private static MLContext _mlContext = new MLContext();
 
-		private static string _path = @"F:\Studies\Projects\TrafficIDS\TrafficIDS\Data\meterData.csv";
-		private static string ModelPath = @"F:\Studies\Projects\TrafficIDS\TrafficIDS\MlModels\PowerAnomalyDetectionModel.zip";
-		private static int _fileSize = 36;
+		private readonly IConfiguration _config;
+		private readonly IHostingEnvironment _hostingEnvironment;
 
-		public IntrusionDetectionService()
+		public IntrusionDetectionService(IConfiguration config, IHostingEnvironment hostingEnvironment)
 		{
-			_mlContext = new MLContext();
+			_config = config;
+			_hostingEnvironment = hostingEnvironment;
 		}
 
-		public IEnumerable<EvaluatedTrafficData> GetSpikes()
+		public IEnumerable<EvaluatedTrafficData> GetSpikes(string fileName)
 		{
-			var dataView = LoadData();
+			var dataView = LoadData(
+				Path.Combine(_hostingEnvironment.WebRootPath, _config["StoredFilesPath"], fileName));
 
 			var trainedModel = BuildTrainModel(dataView);
 			SaveTrainedModel(transformer: trainedModel, dataView);
@@ -34,12 +34,12 @@ namespace TrafficIDS.Services
 			return evaluatedData;
 		}
 
-		public IDataView LoadData()
+		public IDataView LoadData(string path)
 		{
 			try
 			{
 				return _mlContext.Data
-					.LoadFromTextFile<MeterData>(path: _path, hasHeader: true, separatorChar: ',');
+					.LoadFromTextFile<MeterData>(path: path, hasHeader: true, separatorChar: ',');
 			}
 			catch
 			{
@@ -72,7 +72,8 @@ namespace TrafficIDS.Services
 		{
 			try
 			{
-				_mlContext.Model.Save(transformer, dataView.Schema, ModelPath);
+				var modelPath = Path.Combine(_hostingEnvironment.WebRootPath, _config["ModelPath"]);
+				_mlContext.Model.Save(transformer, dataView.Schema, modelPath);
 			}
 			catch
 			{
@@ -82,7 +83,8 @@ namespace TrafficIDS.Services
 
 		public IEnumerable<EvaluatedTrafficData> GetEvaluatedData(IDataView dataView)
 		{
-			ITransformer trainedModel = _mlContext.Model.Load(ModelPath, out var modelInputSchema);
+			var modelPath = Path.Combine(_hostingEnvironment.WebRootPath, _config["ModelPath"]);
+			ITransformer trainedModel = _mlContext.Model.Load(modelPath, out var modelInputSchema);
 
 			var transformedData = trainedModel.Transform(dataView);
 
